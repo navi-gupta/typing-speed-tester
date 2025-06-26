@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typing Speed Tester</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for Inter font and general body styling */
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(to right, #a7f3d0, #6ee7b7); /* Light green gradient background */
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        /* Highlight styles for typed text */
+        .char.correct {
+            color: #16a34a; /* green-700 */
+        }
+        .char.incorrect {
+            color: #dc2626; /* red-700 */
+            text-decoration: underline;
+        }
+        .char.current {
+            background-color: #bfdbfe; /* blue-200 */
+            border-radius: 4px;
+            padding: 0 1px;
+        }</style>
+</head>
+<body class="antialiased">
+    <div class="w-full max-w-2xl bg-white p-8 rounded-2xl shadow-xl transform transition-all duration-300 hover:scale-105 flex flex-col items-center">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Typing Speed Tester</h1>
+
+        <!-- Text Display Area -->
+        <div id="textDisplay" class="bg-gray-50 p-6 rounded-lg shadow-inner border border-gray-200 mb-6 text-xl leading-relaxed text-gray-700 select-none">
+            <!-- Text will be loaded here by JavaScript -->
+            <p class="text-center text-gray-500">Loading typing text...</p>
+        </div>
+
+        <!-- Input Field -->
+        <input
+            type="text"
+            id="textInput"
+            placeholder="Start typing here..."
+            class="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-sm text-lg mb-6"
+            aria-label="Typing Input Field"
+            disabled
+        >
+
+        <!-- Timer and Results Display -->
+        <div class="flex flex-col sm:flex-row justify-around w-full mb-6 text-center text-gray-800">
+            <div class="mb-4 sm:mb-0">
+                <span class="block text-2xl font-bold" id="timer">0s</span>
+                <span class="block text-sm text-gray-600">Time</span>
+            </div>
+            <div class="mb-4 sm:mb-0">
+                <span class="block text-2xl font-bold" id="wpm">0 WPM</span>
+                <span class="block text-sm text-gray-600">Words Per Minute</span>
+            </div>
+            <div>
+                <span class="block text-2xl font-bold" id="accuracy">100%</span>
+                <span class="block text-sm text-gray-600">Accuracy</span>
+            </div>
+        </div>
+
+        <!-- Control Buttons -->
+        <button
+            id="resetBtn"
+            class="bg-blue-600 text-white px-6 py-3 rounded-full hover:bg-blue-700 transition duration-300 ease-in-out transform hover:scale-105 shadow-lg flex items-center justify-center"
+            aria-label="Reset Test Button"
+        >
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004 16.087V12m6.201 4.546L14.75 19.5m0 0l-9.75-9.75m9.75 9.75V15" />
+            </svg>
+            Reset Test
+        </button>
+
+        <!-- Message Box for copy status/info -->
+        <div id="messageBox" class="hidden bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative mt-6" role="alert">
+            <strong class="font-bold" id="messageBoxTitle"></strong>
+            <span class="block sm:inline" id="messageBoxContent"></span>
+        </div>
+    </div>
+    <script>
+        // Get references to DOM elements
+        const textDisplay = document.getElementById('textDisplay');
+        const textInput = document.getElementById('textInput');
+        const timerSpan = document.getElementById('timer');
+        const wpmSpan = document.getElementById('wpm');
+        const accuracySpan = document.getElementById('accuracy');
+        const resetBtn = document.getElementById('resetBtn');
+        const messageBox = document.getElementById('messageBox');
+        const messageBoxTitle = document.getElementById('messageBoxTitle');
+        const messageBoxContent = document.getElementById('messageBoxContent');
+
+        // Typing texts - greatly expanded
+        const typingTexts = [
+            "The quick brown fox jumps over the lazy dog. This sentence is often used to demonstrate fonts or test typing speed because it contains every letter of the English alphabet. It's a classic example in typography and programming alike, allowing for a comprehensive assessment of character rendering and keyboard input.",
+            "Programming is like building a puzzle, piece by piece, where each line of code is a crucial component that fits into a larger, functional system. The process involves logical thinking, problem-solving, and a systematic approach to breaking down complex challenges into manageable parts. Debugging is an integral part of this process, refining the solution until it operates flawlessly.",
+            "Practice makes perfect, especially when learning new skills. Consistent effort and repetition are key to mastery, whether it's playing a musical instrument, learning a new language, or improving your typing speed. Every session, no matter how short, contributes to muscle memory and a deeper understanding of the subject matter, leading to significant long-term progress.",
+            "The early bird catches the worm, but the second mouse gets the cheese. This old adage highlights the balance between proactive action and patient observation. Sometimes, being first can lead to great rewards, while at other times, waiting and learning from the experiences of others can lead to a more advantageous outcome.",
+            "Creativity is intelligence having fun. Albert Einstein, a renowned physicist, is often credited with this profound statement, emphasizing the playful and exploratory nature of truly innovative thought. It suggests that groundbreaking ideas often emerge not from rigid adherence to rules, but from a curious and imaginative approach to problems.",
+            "Technology has fundamentally transformed the way we live and work, ushering in an era of unprecedented connectivity and access to information. From instantaneous global communication to automated industrial processes, technological advancements continue to reshape societies and economies at an astonishing pace, demanding constant adaptation and continuous learning from individuals and organizations alike.",
+            "The greatest glory in living lies not in never falling, but in rising every time we fall. This inspiring quote speaks to the resilience of the human spirit and the importance of perseverance in the face of adversity. True strength is not the absence of struggle, but the capacity to overcome challenges and learn from setbacks, emerging stronger and wiser.",
+            "Innovation distinguishes between a leader and a follower. This principle underscores the critical role of new ideas and creative solutions in driving progress and maintaining a competitive edge. In any field, those who actively seek to innovate and challenge existing norms are often the ones who shape the future and inspire others to follow.",
+            "In the realm of modern web development, crafting responsive and interactive user interfaces is paramount. Developers often leverage a combination of HTML for semantic structure, CSS for elegant styling, and JavaScript for dynamic behavior. Frameworks like Tailwind CSS streamline the styling process by providing utility-first classes, allowing for rapid UI creation directly in the markup. This approach significantly reduces the need for custom CSS, leading to more consistent and maintainable designs across various screen sizes and devices. The ability to quickly iterate and adapt to different design requirements is a key advantage in today's fast-paced development environment, demanding proficiency in various front-end technologies and an understanding of user experience principles to deliver truly engaging digital products.",
+            "The concept of asynchronous programming is fundamental to building fluid and non-blocking web applications. JavaScript, being inherently single-threaded, relies heavily on asynchronous patterns like callbacks, Promises, and the modern async/await syntax to effectively handle operations that may take a significant amount of time, such as fetching data from external APIs, reading files from a disk, or performing complex computations. This paradigm ensures that the user interface remains responsive and does not freeze or become unresponsive while waiting for these long-running tasks to complete. Mastering these asynchronous techniques is absolutely crucial for creating high-performance and exceptionally user-friendly web experiences, allowing computationally intensive or I/O-bound operations to run efficiently in the background without interrupting the main execution thread, thereby enhancing the overall perceived speed and smoothness of the application."
+        ];
+
+        // Game state variables
+        let currentText = '';
+        let timer = 0;
+        let intervalId = null;
+        let typedCharacters = 0;
+        let correctCharacters = 0;
+        let incorrectCharacters = 0;
+        let gameStarted = false;
+
+        /**
+         * Displays a message in the message box, then hides it after a delay.
+         * @param {string} type - 'success', 'info', or 'error'.
+         * @param {string} title - The title of the message.
+         * @param {string} content - The content of the message.
+         */
+        function showMessageBox(type, title, content) {
+            // Reset classes
+            messageBox.classList.remove('hidden', 'bg-green-100', 'border-green-400', 'text-green-700', 'bg-blue-100', 'border-blue-400', 'text-blue-700', 'bg-red-100', 'border-red-400', 'text-red-700');
+            messageBoxTitle.textContent = title;
+            messageBoxContent.textContent = content;
+
+            // Apply specific classes based on type
+            if (type === 'success') {
+                messageBox.classList.add('bg-green-100', 'border-green-400', 'text-green-700');
+            } else if (type === 'info') {
+                messageBox.classList.add('bg-blue-100', 'border-blue-400', 'text-blue-700');
+            } else if (type === 'error') {
+                messageBox.classList.add('bg-red-100', 'border-red-400', 'text-red-700');
+            }
+            messageBox.classList.remove('hidden');
+
+            // Hide after 3 seconds
+            setTimeout(() => {
+                messageBox.classList.add('hidden');
+            }, 3000);
+        }
+
+        /**
+         * Hides the message box.
+         */
+        function hideMessageBox() {
+            messageBox.classList.add('hidden');
+        }
+
+
+        /**
+         * Initializes or resets the game state.
+         */
+        function initGame() {
+            console.log("initGame: Starting initialization.");
+            // Reset all game variables
+            clearInterval(intervalId); // Stop any running timer
+            timer = 0;
+            typedCharacters = 0;
+            correctCharacters = 0;
+            incorrectCharacters = 0;
+            gameStarted = false;
+
+            // Reset displays
+            timerSpan.textContent = '0s';
+            wpmSpan.textContent = '0 WPM';
+            accuracySpan.textContent = '100%';
+            textInput.value = ''; // Clear input field
+            textInput.disabled = false; // Enable input
+            textInput.focus(); // Focus input field for user convenience
+            hideMessageBox(); // Hide any active messages
+
+            // Select a random text from the array
+            const randomIndex = Math.floor(Math.random() * typingTexts.length);
+            currentText = typingTexts[randomIndex];
+            console.log("initGame: Selected text:", currentText);
+
+            // Render the text character by character in spans for highlighting
+            if (textDisplay) {
+                textDisplay.innerHTML = ''; // Clear previous text
+                console.log("initGame: textDisplay cleared. Attempting to render characters.");
+                currentText.split('').forEach((char, index) => {
+                    const charSpan = document.createElement('span');
+                    charSpan.classList.add('char'); // Base class for all characters
+                    charSpan.textContent = char;
+                    charSpan.dataset.index = index; // Store index for easy lookup
+                    textDisplay.appendChild(charSpan);
+                });
+                console.log("initGame: Characters rendering loop completed.");
+            } else {
+                console.error("initGame: textDisplay element not found in the DOM!");
+            }
+
+
+            // Highlight the first character as current
+            if (currentText.length > 0) {
+                const firstCharSpan = textDisplay.querySelector('.char[data-index="0"]');
+                if (firstCharSpan) {
+                    firstCharSpan.classList.add('current');
+                    console.log("initGame: First character highlighted.");
+                } else {
+                    console.log("initGame: Could not find first character span to highlight. Text might be empty or DOM issue.");
+                }
+            } else {
+                console.log("initGame: currentText is empty, no character to highlight.");
+            }
+
+
+            showMessageBox('info', 'Ready!', 'Type the text above to start the test.');
+            console.log("initGame: Initialization complete.");
+        }
+
+        /**
+         * Starts the timer and sets gameStarted flag.
+         */
+        function startGame() {
+            if (!gameStarted) {
+                gameStarted = true;
+                showMessageBox('info', 'Typing...', 'Test in progress.');
+                intervalId = setInterval(() => {
+                    timer++;
+                    timerSpan.textContent = `${timer}s`;
+                    calculateResults(); // Update results every second
+                }, 1000);
+            }
+        }
+
+        /**
+         * Processes user input character by character.
+         * Handles highlighting, error counting, and game completion.
+         */
+        function processInput() {
+            if (!gameStarted) {
+                startGame(); // Start game on first input
+            }
+
+            const typedValue = textInput.value;
+            const targetChars = textDisplay.querySelectorAll('.char'); // Get all character spans
+
+            typedCharacters = typedValue.length;
+            correctCharacters = 0;
+            incorrectCharacters = 0;
+
+            // Remove 'current' class from all characters first to ensure only one is highlighted
+            targetChars.forEach(charSpan => {
+                charSpan.classList.remove('current');
+            });
+
+
+            targetChars.forEach((charSpan, index) => {
+                const targetChar = currentText[index];
+                const typedChar = typedValue[index];
+
+                // Remove previous correct/incorrect highlighting classes for typed characters
+                if (index < typedCharacters) {
+                    charSpan.classList.remove('correct', 'incorrect');
+                }
+
+
+                if (index < typedCharacters) {
+                    // Character has been typed
+                    if (typedChar === targetChar) {
+                        charSpan.classList.add('correct');
+                        correctCharacters++;
+                    } else {
+                        charSpan.classList.add('incorrect');
+                        incorrectCharacters++;
+                    }
+                } else if (index === typedCharacters) {
+                    // This is the next character to be typed
+                    charSpan.classList.add('current');
+                }
+            });
+
+            calculateResults(); // Update results in real-time
+
+            // Check if the user has typed the entire text
+            if (typedValue.length === currentText.length) {
+                endGame();
+            }
+        }
+
+        /**
+         * Calculates and updates WPM and Accuracy.
+         */
+        function calculateResults() {
+            if (timer === 0) {
+                wpmSpan.textContent = '0 WPM';
+                accuracySpan.textContent = '100%';
+                return;
+            }
+
+            // WPM calculation: (typed characters / 5) / (time in minutes)
+            // A "word" is typically considered 5 characters.
+            const minutes = timer / 60;
+            const wordsTyped = typedCharacters / 5;
+            const wpm = Math.round(wordsTyped / minutes);
+            wpmSpan.textContent = `${wpm} WPM`;
+
+            // Accuracy calculation
+            const accuracy = typedCharacters > 0
+                ? Math.round((correctCharacters / typedCharacters) * 100)
+                : 100;
+            accuracySpan.textContent = `${accuracy}%`;
+        }
+
+        /**
+         * Ends the game, stops the timer, and displays final results.
+         */
+        function endGame() {
+            clearInterval(intervalId); // Stop the timer
+            textInput.disabled = true; // Disable input after game ends
+            gameStarted = false; // Set game state to not started
+            calculateResults(); // Final results calculation
+
+            // Ensure last character highlighting is removed
+            const lastCharSpan = textDisplay.querySelector(`.char[data-index="${currentText.length - 1}"]`);
+            if (lastCharSpan) {
+                lastCharSpan.classList.remove('current');
+            }
+
+            showMessageBox('success', 'Test Complete!', `Your final WPM: ${wpmSpan.textContent}, Accuracy: ${accuracySpan.textContent}`);
+        }
+
+        // --- Event Listeners ---
+
+        textInput.addEventListener('input', processInput);
+
+        resetBtn.addEventListener('click', initGame);
+
+        // Initialize the game when the page loads
+        window.onload = initGame;
+    </script>
+    
+</body>
+</html>
